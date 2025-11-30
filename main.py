@@ -105,7 +105,7 @@ class Client:
         finally: 
             with self.lock:
                 if client_socket in self.clients:
-                    self.clients_remove(client_socket)
+                    self.clients.remove(client_socket)
                 if client_id in self.players:
                     del self.players[client_id]
 
