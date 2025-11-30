@@ -5,8 +5,8 @@ from datetime import datetime
 import sys
 
 
-class Client: 
-    def __init__(self, host = "0.0.0.0", port = 10000):
+class Client:
+    def __init__(self, host="0.0.0.0", port=10000):
         self.host = host
         self.port = port
         self.clients = []
@@ -16,8 +16,8 @@ class Client:
 
         
     def start(self):
-        print("players can connect: forcedentry.onrender.com")
-        print(f"server running on {self.host}:{self.port}")
+        print(f"Game port: {self.port}")
+        print(f"Started at: {datetime.now().strftime('%H:%M:%S')}")
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -25,32 +25,31 @@ class Client:
 
         try: 
             self.socket.bind((self.host, self.port))
-            self.socket.listen()
+            self.socket.listen(10)
 
-            print(f"server running on {self.host}:{self.port}")
-            print("waiting for unity clients..")
+            print(f"Server running on {self.host}:{self.port}")
+            print("Waiting for Unity clients...")
 
             while self.running:
                 try:
                     client_socket, client_address = self.socket.accept()
-                    print(f" client connected : {client_address}")
+                    print(f"Client connected: {client_address}")
+                    
                     client_thread = threading.Thread(
                         target=self.handle_client,
                         args=(client_socket, client_address),
                         daemon=True
                     )
-
                     client_thread.start()
 
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if self.running:
-                        print(f"accept error: " + e)
+                        print(f"Accept error: {e}")
                     break
         except Exception as e:
-            print(f"server error" + e)
-
+            print(f"Server error: {e}")
         finally:
             self.stop()
 
@@ -61,16 +60,16 @@ class Client:
         try:
             client_socket.settimeout(1.0)
 
-            welcome_msg = f"your id {client_id}"
+            welcome_msg = f"server_info:Welcome! Your ID: {client_id}\n"
             client_socket.sendall(welcome_msg.encode('utf-8'))
-            print(f"sent to {client_address}")
+            print(f"Sent welcome to {client_address}")
 
             with self.lock:
                 self.clients.append(client_socket)
                 self.players[client_id] = {
                     'socket': client_socket,
                     'address': client_address,
-                    'username': f'player{len(self.players)}',
+                    'username': f'Player{len(self.players)}',
                     'position': '0,0,0'
                 }
 
@@ -97,10 +96,11 @@ class Client:
                     continue
                 except Exception as e:
                     if self.running:
-                        print(f"client error: " + e)
+                        print(f"Client error {client_address}: {e}")
+                    break
 
         except Exception as e:
-            print(f"client handler error: {client_address}" + e)
+            print(f"Client handler error {client_address}: {e}")
 
         finally: 
             with self.lock:
@@ -114,11 +114,11 @@ class Client:
             except: 
                 pass
 
-            print(f" client disconnected: {client_address}")
+            print(f"Client disconnected: {client_address}")
             self.broadcast(f"player_left:{client_id}", "")
 
     def process_message(self, client_id, message):
-        print(f"from {client_id}: {message}")
+        print(f"From {client_id}: {message}")
 
         try: 
             if ':' in message:
@@ -129,33 +129,27 @@ class Client:
                         if client_id in self.players:
                             self.players[client_id]['username'] = data
 
-                        print(f"player {client_id} set username: "+data)
-
-                        self.broadcast(f"lobby_info:Player {data} joined", client_id)
-
+                    print(f"Player {client_id} set username: {data}")
+                    self.broadcast(f"lobby_info:Player {data} joined", client_id)
 
                 elif command == "position":
                     with self.lock:
                         if client_id in self.players:
                             self.players[client_id]['position'] = data
-                        
-                    self.broadcast(f"player_position:{client_id},{data}", client_id)
-
+                    
+                    self.broadcast(f"position:{client_id},{data}", client_id)
 
                 elif command == "shoot":
                     self.broadcast(f"shoot:{client_id},{data}", client_id) 
-                    print(f"player {client_id} shot: {data}")
-
+                    print(f"Player {client_id} shot: {data}")
 
                 elif command == "ping":
                     with self.lock:
                         if client_id in self.players:
-                            self.players[client_id]['socket'].sendall(b"pong: \n")
+                            self.players[client_id]['socket'].sendall(b"pong:\n")
 
         except Exception as e:
-            print(f"message processing error: " + e)
-
-    
+            print(f"Message processing error: {e}")
 
     def broadcast(self, message, exclude_client_id):
         with self.lock:
@@ -164,11 +158,10 @@ class Client:
                     try:
                         player['socket'].sendall(f"{message}\n".encode('utf-8'))
                     except Exception as e:
-                        print(f"broadcast error to {client_id}: " + e)
-
+                        print(f"Broadcast error to {client_id}: {e}")
 
     def stop(self):
-        print("stopping server..")
+        print("Stopping server...")
         self.running = False
 
         with self.lock:
@@ -181,8 +174,7 @@ class Client:
             self.socket.close()
         except:
             pass
-        print("server stopped")
-
+        print("Server stopped")
 
 
 if __name__ == "__main__":
@@ -190,14 +182,8 @@ if __name__ == "__main__":
     try:
         server.start()
     except KeyboardInterrupt:
-        print(f"server stopped by user")
+        print("Server stopped by user")
     except Exception as e:
-        print(f"server crashed" + e)
-
+        print(f"Server crashed: {e}")
         import traceback
         traceback.print_exc()
-                        
-
-
-
-
